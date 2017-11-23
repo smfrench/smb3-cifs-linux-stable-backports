@@ -42,7 +42,7 @@
 #include "cifs_debug.h"
 #include "cifs_fs_sb.h"
 #include "fscache.h"
-
+#include "smbdirect.h"
 
 static inline int cifs_convert_flags(unsigned int flags)
 {
@@ -2919,7 +2919,12 @@ cifs_readdata_release(struct kref *refcount)
 {
 	struct cifs_readdata *rdata = container_of(refcount,
 					struct cifs_readdata, refcount);
-
+#ifdef CONFIG_CIFS_SMB_DIRECT
+	if (rdata->mr) {
+		smbd_deregister_mr(rdata->mr);
+		rdata->mr = NULL;
+	}
+#endif
 	if (rdata->cfile)
 		cifsFileInfo_put(rdata->cfile);
 
@@ -3048,6 +3053,10 @@ uncached_fill_pages(struct TCP_Server_Info *server,
 		}
 		if (iter)
 			result = copy_page_from_iter(page, 0, n, iter);
+#ifdef CONFIG_CIFS_SMB_DIRECT
+		else if (rdata->mr)
+			result = n;
+#endif
 		else
 			result = cifs_read_page_from_socket(server, page, n);
 		if (result < 0)
@@ -3615,6 +3624,10 @@ readpages_fill_pages(struct TCP_Server_Info *server,
 
 		if (iter)
 			result = copy_page_from_iter(page, 0, n, iter);
+#ifdef CONFIG_CIFS_SMB_DIRECT
+		else if (rdata->mr)
+			result = n;
+#endif
 		else
 			result = cifs_read_page_from_socket(server, page, n);
 		if (result < 0)
