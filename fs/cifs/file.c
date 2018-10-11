@@ -2108,6 +2108,7 @@ static int cifs_writepages(struct address_space *mapping,
 	pgoff_t end, index;
 	struct cifs_writedata *wdata;
 	int rc = 0;
+	unsigned int xid;
 
 	/*
 	 * If wsize is smaller than the page cache size, default to writing
@@ -2116,6 +2117,7 @@ static int cifs_writepages(struct address_space *mapping,
 	if (cifs_sb->wsize < PAGE_SIZE)
 		return generic_writepages(mapping, wbc);
 
+	xid = get_xid();
 	if (wbc->range_cyclic) {
 		index = mapping->writeback_index; /* Start from prev offset */
 		end = -1;
@@ -2209,6 +2211,7 @@ retry:
 	if (wbc->range_cyclic || (range_whole && wbc->nr_to_write > 0))
 		mapping->writeback_index = index;
 
+	free_xid(xid);
 	return rc;
 }
 
@@ -3753,7 +3756,9 @@ static int cifs_readpages(struct file *file, struct address_space *mapping,
 	struct cifs_sb_info *cifs_sb = CIFS_FILE_SB(file);
 	struct TCP_Server_Info *server;
 	pid_t pid;
+	unsigned int xid;
 
+	xid = get_xid();
 	/*
 	 * Reads as many pages as possible from fscache. Returns -ENOBUFS
 	 * immediately if the cookie is negative
@@ -3763,8 +3768,10 @@ static int cifs_readpages(struct file *file, struct address_space *mapping,
 	 */
 	rc = cifs_readpages_from_fscache(mapping->host, mapping, page_list,
 					 &num_pages);
-	if (rc == 0)
+	if (rc == 0) {
+		free_xid(xid);
 		return rc;
+	}
 
 	if (cifs_sb->mnt_cifs_flags & CIFS_MOUNT_RWPIDFORWARD)
 		pid = open_file->pid;
@@ -3808,6 +3815,7 @@ static int cifs_readpages(struct file *file, struct address_space *mapping,
 		 */
 		if (unlikely(rsize < PAGE_SIZE)) {
 			add_credits_and_wake_if(server, credits, 0);
+			free_xid(xid);
 			return 0;
 		}
 
@@ -3872,6 +3880,7 @@ static int cifs_readpages(struct file *file, struct address_space *mapping,
 	 * allocator.
 	 */
 	cifs_fscache_readpages_cancel(mapping->host, page_list);
+	free_xid(xid);
 	return rc;
 }
 
