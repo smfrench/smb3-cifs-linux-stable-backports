@@ -573,6 +573,19 @@ static const struct file_operations cifs_stats_proc_fops = {
 	.write		= cifs_stats_proc_write,
 };
 
+static int cifs_open_files_proc_open(struct inode *inode, struct file *file)
+{
+       return single_open(file, cifs_debug_files_proc_show, NULL);
+}
+
+static const struct file_operations cifs_open_files_proc_fops = {
+       .open           = cifs_open_files_proc_open,
+       .read           = seq_read,
+       .llseek         = seq_lseek,
+       .release        = single_release,
+};
+
+
 #ifdef CONFIG_CIFS_SMB_DIRECT
 #define PROC_FILE_DEFINE(name) \
 static ssize_t name##_write(struct file *file, const char __user *buffer, \
@@ -628,8 +641,8 @@ cifs_proc_init(void)
 
 	proc_create("DebugData", 0, proc_fs_cifs, &cifs_debug_data_proc_fops);
 
-	proc_create_single("open_files", 0400, proc_fs_cifs,
-			cifs_debug_files_proc_show);
+	proc_create("open_files", 0400, proc_fs_cifs,
+			&cifs_open_files_proc_fops);
 
 	proc_create("Stats", 0644, proc_fs_cifs, &cifs_stats_proc_fops);
 	proc_create("cifsFYI", 0644, proc_fs_cifs, &cifsFYI_proc_fops);
