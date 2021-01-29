@@ -1,0 +1,74 @@
+From 6058eaec816f29fbe33c9d35694614c9a4ed75ba Mon Sep 17 00:00:00 2001
+From: Johannes Weiner <hannes@cmpxchg.org>
+Date: Wed, 3 Jun 2020 16:02:40 -0700
+Subject: [PATCH 016/197] mm: fold and remove lru_cache_add_anon() and
+ lru_cache_add_file()
+
+They're the same function, and for the purpose of all callers they are
+equivalent to lru_cache_add().
+
+[akpm@linux-foundation.org: fix it for local_lock changes]
+Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Reviewed-by: Rik van Riel <riel@surriel.com>
+Acked-by: Michal Hocko <mhocko@suse.com>
+Acked-by: Minchan Kim <minchan@kernel.org>
+Cc: Joonsoo Kim <iamjoonsoo.kim@lge.com>
+Link: http://lkml.kernel.org/r/20200520232525.798933-5-hannes@cmpxchg.org
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ fs/cifs/file.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/fs/cifs/file.c b/fs/cifs/file.c
+index 75ddce8ef456..17a4f49c34f5 100644
+--- a/fs/cifs/file.c
++++ b/fs/cifs/file.c
+@@ -4162,7 +4162,7 @@ cifs_readv_complete(struct work_struct *work)
+ 	for (i = 0; i < rdata->nr_pages; i++) {
+ 		struct page *page = rdata->pages[i];
+ 
+-		lru_cache_add_file(page);
++		lru_cache_add(page);
+ 
+ 		if (rdata->result == 0 ||
+ 		    (rdata->result == -EAGAIN && got_bytes)) {
+@@ -4232,7 +4232,7 @@ readpages_fill_pages(struct TCP_Server_Info *server,
+ 			 * fill them until the writes are flushed.
+ 			 */
+ 			zero_user(page, 0, PAGE_SIZE);
+-			lru_cache_add_file(page);
++			lru_cache_add(page);
+ 			flush_dcache_page(page);
+ 			SetPageUptodate(page);
+ 			unlock_page(page);
+@@ -4242,7 +4242,7 @@ readpages_fill_pages(struct TCP_Server_Info *server,
+ 			continue;
+ 		} else {
+ 			/* no need to hold page hostage */
+-			lru_cache_add_file(page);
++			lru_cache_add(page);
+ 			unlock_page(page);
+ 			put_page(page);
+ 			rdata->pages[i] = NULL;
+@@ -4437,7 +4437,7 @@ static int cifs_readpages(struct file *file, struct address_space *mapping,
+ 			/* best to give up if we're out of mem */
+ 			list_for_each_entry_safe(page, tpage, &tmplist, lru) {
+ 				list_del(&page->lru);
+-				lru_cache_add_file(page);
++				lru_cache_add(page);
+ 				unlock_page(page);
+ 				put_page(page);
+ 			}
+@@ -4475,7 +4475,7 @@ static int cifs_readpages(struct file *file, struct address_space *mapping,
+ 			add_credits_and_wake_if(server, &rdata->credits, 0);
+ 			for (i = 0; i < rdata->nr_pages; i++) {
+ 				page = rdata->pages[i];
+-				lru_cache_add_file(page);
++				lru_cache_add(page);
+ 				unlock_page(page);
+ 				put_page(page);
+ 			}
+-- 
+2.27.0
+

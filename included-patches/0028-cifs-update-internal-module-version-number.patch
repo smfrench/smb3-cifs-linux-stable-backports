@@ -1,0 +1,26 @@
+From 331cc667a99c633abbbebeab4675beae713fb331 Mon Sep 17 00:00:00 2001
+From: Steve French <stfrench@microsoft.com>
+Date: Tue, 2 Jun 2020 23:30:50 -0500
+Subject: [PATCH 028/197] cifs: update internal module version number
+
+    To 2.27
+
+Signed-off-by: Steve French <stfrench@microsoft.com>
+---
+ fs/cifs/cifsfs.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/fs/cifs/cifsfs.h b/fs/cifs/cifsfs.h
+index c9e2e6bbca13..c7a311d28d3d 100644
+--- a/fs/cifs/cifsfs.h
++++ b/fs/cifs/cifsfs.h
+@@ -156,5 +156,5 @@ extern int cifs_truncate_page(struct address_space *mapping, loff_t from);
+ extern const struct export_operations cifs_export_ops;
+ #endif /* CONFIG_CIFS_NFSD_EXPORT */
+ 
+-#define CIFS_VERSION   "2.26"
++#define CIFS_VERSION   "2.27"
+ #endif				/* _CIFSFS_H */
+-- 
+2.27.0
+

@@ -1,0 +1,167 @@
+From 453431a54934d917153c65211b2dabf45562ca88 Mon Sep 17 00:00:00 2001
+From: Waiman Long <longman@redhat.com>
+Date: Thu, 6 Aug 2020 23:18:13 -0700
+Subject: [PATCH 079/197] mm, treewide: rename kzfree() to kfree_sensitive()
+
+As said by Linus:
+
+  A symmetric naming is only helpful if it implies symmetries in use.
+  Otherwise it's actively misleading.
+
+  In "kzalloc()", the z is meaningful and an important part of what the
+  caller wants.
+
+  In "kzfree()", the z is actively detrimental, because maybe in the
+  future we really _might_ want to use that "memfill(0xdeadbeef)" or
+  something. The "zero" part of the interface isn't even _relevant_.
+
+The main reason that kzfree() exists is to clear sensitive information
+that should not be leaked to other future users of the same memory
+objects.
+
+Rename kzfree() to kfree_sensitive() to follow the example of the recently
+added kvfree_sensitive() and make the intention of the API more explicit.
+In addition, memzero_explicit() is used to clear the memory to make sure
+that it won't get optimized away by the compiler.
+
+The renaming is done by using the command sequence:
+
+  git grep -w --name-only kzfree |\
+  xargs sed -i 's/kzfree/kfree_sensitive/'
+
+followed by some editing of the kfree_sensitive() kerneldoc and adding
+a kzfree backward compatibility macro in slab.h.
+
+[akpm@linux-foundation.org: fs/crypto/inline_crypt.c needs linux/slab.h]
+[akpm@linux-foundation.org: fix fs/crypto/inline_crypt.c some more]
+
+Suggested-by: Joe Perches <joe@perches.com>
+Signed-off-by: Waiman Long <longman@redhat.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Acked-by: David Howells <dhowells@redhat.com>
+Acked-by: Michal Hocko <mhocko@suse.com>
+Acked-by: Johannes Weiner <hannes@cmpxchg.org>
+Cc: Jarkko Sakkinen <jarkko.sakkinen@linux.intel.com>
+Cc: James Morris <jmorris@namei.org>
+Cc: "Serge E. Hallyn" <serge@hallyn.com>
+Cc: Joe Perches <joe@perches.com>
+Cc: Matthew Wilcox <willy@infradead.org>
+Cc: David Rientjes <rientjes@google.com>
+Cc: Dan Carpenter <dan.carpenter@oracle.com>
+Cc: "Jason A . Donenfeld" <Jason@zx2c4.com>
+Link: http://lkml.kernel.org/r/20200616154311.12314-3-longman@redhat.com
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ fs/cifs/cifsencrypt.c |  2 +-
+ fs/cifs/connect.c     | 10 +++++-----
+ fs/cifs/dfs_cache.c   |  2 +-
+ fs/cifs/misc.c        |  8 ++++----
+ 4 files changed, 11 insertions(+), 11 deletions(-)
+
+diff --git a/fs/cifs/cifsencrypt.c b/fs/cifs/cifsencrypt.c
+index 874a551f339c..9daa256f69d4 100644
+--- a/fs/cifs/cifsencrypt.c
++++ b/fs/cifs/cifsencrypt.c
+@@ -797,7 +797,7 @@ calc_seckey(struct cifs_ses *ses)
+ 	ses->auth_key.len = CIFS_SESS_KEY_SIZE;
+ 
+ 	memzero_explicit(sec_key, CIFS_SESS_KEY_SIZE);
+-	kzfree(ctx_arc4);
++	kfree_sensitive(ctx_arc4);
+ 	return 0;
+ }
+ 
+diff --git a/fs/cifs/connect.c b/fs/cifs/connect.c
+index a61abde09ffe..889fee586d94 100644
+--- a/fs/cifs/connect.c
++++ b/fs/cifs/connect.c
+@@ -2182,7 +2182,7 @@ cifs_parse_mount_options(const char *mountdata, const char *devname,
+ 			tmp_end++;
+ 			if (!(tmp_end < end && tmp_end[1] == delim)) {
+ 				/* No it is not. Set the password to NULL */
+-				kzfree(vol->password);
++				kfree_sensitive(vol->password);
+ 				vol->password = NULL;
+ 				break;
+ 			}
+@@ -2220,7 +2220,7 @@ cifs_parse_mount_options(const char *mountdata, const char *devname,
+ 					options = end;
+ 			}
+ 
+-			kzfree(vol->password);
++			kfree_sensitive(vol->password);
+ 			/* Now build new password string */
+ 			temp_len = strlen(value);
+ 			vol->password = kzalloc(temp_len+1, GFP_KERNEL);
+@@ -3198,7 +3198,7 @@ cifs_set_cifscreds(struct smb_vol *vol, struct cifs_ses *ses)
+ 			rc = -ENOMEM;
+ 			kfree(vol->username);
+ 			vol->username = NULL;
+-			kzfree(vol->password);
++			kfree_sensitive(vol->password);
+ 			vol->password = NULL;
+ 			goto out_key_put;
+ 		}
+@@ -4219,7 +4219,7 @@ void
+ cifs_cleanup_volume_info_contents(struct smb_vol *volume_info)
+ {
+ 	kfree(volume_info->username);
+-	kzfree(volume_info->password);
++	kfree_sensitive(volume_info->password);
+ 	kfree(volume_info->UNC);
+ 	kfree(volume_info->domainname);
+ 	kfree(volume_info->iocharset);
+@@ -5345,7 +5345,7 @@ cifs_construct_tcon(struct cifs_sb_info *cifs_sb, kuid_t fsuid)
+ 
+ out:
+ 	kfree(vol_info->username);
+-	kzfree(vol_info->password);
++	kfree_sensitive(vol_info->password);
+ 	kfree(vol_info);
+ 
+ 	return tcon;
+diff --git a/fs/cifs/dfs_cache.c b/fs/cifs/dfs_cache.c
+index df81c718d2fa..7a8d41493aad 100644
+--- a/fs/cifs/dfs_cache.c
++++ b/fs/cifs/dfs_cache.c
+@@ -1131,7 +1131,7 @@ static int dup_vol(struct smb_vol *vol, struct smb_vol *new)
+ err_free_unc:
+ 	kfree(new->UNC);
+ err_free_password:
+-	kzfree(new->password);
++	kfree_sensitive(new->password);
+ err_free_username:
+ 	kfree(new->username);
+ 	kfree(new);
+diff --git a/fs/cifs/misc.c b/fs/cifs/misc.c
+index e44d049142d0..3e3772446c71 100644
+--- a/fs/cifs/misc.c
++++ b/fs/cifs/misc.c
+@@ -103,12 +103,12 @@ sesInfoFree(struct cifs_ses *buf_to_free)
+ 	kfree(buf_to_free->serverOS);
+ 	kfree(buf_to_free->serverDomain);
+ 	kfree(buf_to_free->serverNOS);
+-	kzfree(buf_to_free->password);
++	kfree_sensitive(buf_to_free->password);
+ 	kfree(buf_to_free->user_name);
+ 	kfree(buf_to_free->domainName);
+-	kzfree(buf_to_free->auth_key.response);
++	kfree_sensitive(buf_to_free->auth_key.response);
+ 	kfree(buf_to_free->iface_list);
+-	kzfree(buf_to_free);
++	kfree_sensitive(buf_to_free);
+ }
+ 
+ struct cifs_tcon *
+@@ -148,7 +148,7 @@ tconInfoFree(struct cifs_tcon *buf_to_free)
+ 	}
+ 	atomic_dec(&tconInfoAllocCount);
+ 	kfree(buf_to_free->nativeFileSystem);
+-	kzfree(buf_to_free->password);
++	kfree_sensitive(buf_to_free->password);
+ 	kfree(buf_to_free->crfid.fid);
+ #ifdef CONFIG_CIFS_DFS_UPCALL
+ 	kfree(buf_to_free->dfs_path);
+-- 
+2.27.0
+

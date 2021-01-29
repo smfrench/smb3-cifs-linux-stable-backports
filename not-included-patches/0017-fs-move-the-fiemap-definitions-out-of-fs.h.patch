@@ -1,0 +1,45 @@
+From 10c5db286452b8c60e8f58e9a4c1cbc5a91e4e5b Mon Sep 17 00:00:00 2001
+From: Christoph Hellwig <hch@lst.de>
+Date: Sat, 23 May 2020 09:30:11 +0200
+Subject: [PATCH 017/197] fs: move the fiemap definitions out of fs.h
+
+No need to pull the fiemap definitions into almost every file in the
+kernel build.
+
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+Reviewed-by: Ritesh Harjani <riteshh@linux.ibm.com>
+Reviewed-by: Darrick J. Wong <darrick.wong@oracle.com>
+Link: https://lore.kernel.org/r/20200523073016.2944131-5-hch@lst.de
+Signed-off-by: Theodore Ts'o <tytso@mit.edu>
+---
+ fs/cifs/inode.c   | 1 +
+ fs/cifs/smb2ops.c | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/fs/cifs/inode.c b/fs/cifs/inode.c
+index 390d2b15ef6e..3f276eb8ca68 100644
+--- a/fs/cifs/inode.c
++++ b/fs/cifs/inode.c
+@@ -25,6 +25,7 @@
+ #include <linux/freezer.h>
+ #include <linux/sched/signal.h>
+ #include <linux/wait_bit.h>
++#include <linux/fiemap.h>
+ 
+ #include <asm/div64.h>
+ #include "cifsfs.h"
+diff --git a/fs/cifs/smb2ops.c b/fs/cifs/smb2ops.c
+index f829f4165d38..09047f1ddfb6 100644
+--- a/fs/cifs/smb2ops.c
++++ b/fs/cifs/smb2ops.c
+@@ -12,6 +12,7 @@
+ #include <linux/uuid.h>
+ #include <linux/sort.h>
+ #include <crypto/aead.h>
++#include <linux/fiemap.h>
+ #include "cifsfs.h"
+ #include "cifsglob.h"
+ #include "smb2pdu.h"
+-- 
+2.27.0
+

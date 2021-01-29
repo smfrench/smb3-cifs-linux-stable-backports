@@ -1,0 +1,166 @@
+From 837e3a1bbfdc105216972c83f693e96969c62351 Mon Sep 17 00:00:00 2001
+From: Ronnie Sahlberg <lsahlber@redhat.com>
+Date: Mon, 2 Nov 2020 09:36:24 +1000
+Subject: [PATCH 137/197] cifs: rename dup_vol to smb3_fs_context_dup and move
+ it into fs_context.c
+
+Continue restructuring needed for support of new mount API
+
+Signed-off-by: Ronnie Sahlberg <lsahlber@redhat.com>
+Signed-off-by: Steve French <stfrench@microsoft.com>
+---
+ fs/cifs/dfs_cache.c  | 60 +-------------------------------------------
+ fs/cifs/fs_context.c | 41 ++++++++++++++++++++++++++++++
+ fs/cifs/fs_context.h |  3 ++-
+ 3 files changed, 44 insertions(+), 60 deletions(-)
+
+diff --git a/fs/cifs/dfs_cache.c b/fs/cifs/dfs_cache.c
+index 3860241dcc03..2b77d39d7d22 100644
+--- a/fs/cifs/dfs_cache.c
++++ b/fs/cifs/dfs_cache.c
+@@ -1141,64 +1141,6 @@ int dfs_cache_get_tgt_referral(const char *path,
+ 	return rc;
+ }
+ 
+-static int dup_vol(struct smb3_fs_context *ctx, struct smb3_fs_context *new)
+-{
+-	memcpy(new, ctx, sizeof(*new));
+-
+-	if (ctx->username) {
+-		new->username = kstrndup(ctx->username, strlen(ctx->username),
+-					 GFP_KERNEL);
+-		if (!new->username)
+-			return -ENOMEM;
+-	}
+-	if (ctx->password) {
+-		new->password = kstrndup(ctx->password, strlen(ctx->password),
+-					 GFP_KERNEL);
+-		if (!new->password)
+-			goto err_free_username;
+-	}
+-	if (ctx->UNC) {
+-		cifs_dbg(FYI, "%s: ctx->UNC: %s\n", __func__, ctx->UNC);
+-		new->UNC = kstrndup(ctx->UNC, strlen(ctx->UNC), GFP_KERNEL);
+-		if (!new->UNC)
+-			goto err_free_password;
+-	}
+-	if (ctx->domainname) {
+-		new->domainname = kstrndup(ctx->domainname,
+-					   strlen(ctx->domainname), GFP_KERNEL);
+-		if (!new->domainname)
+-			goto err_free_unc;
+-	}
+-	if (ctx->iocharset) {
+-		new->iocharset = kstrndup(ctx->iocharset,
+-					  strlen(ctx->iocharset), GFP_KERNEL);
+-		if (!new->iocharset)
+-			goto err_free_domainname;
+-	}
+-	if (ctx->prepath) {
+-		cifs_dbg(FYI, "%s: ctx->prepath: %s\n", __func__, ctx->prepath);
+-		new->prepath = kstrndup(ctx->prepath, strlen(ctx->prepath),
+-					GFP_KERNEL);
+-		if (!new->prepath)
+-			goto err_free_iocharset;
+-	}
+-
+-	return 0;
+-
+-err_free_iocharset:
+-	kfree(new->iocharset);
+-err_free_domainname:
+-	kfree(new->domainname);
+-err_free_unc:
+-	kfree(new->UNC);
+-err_free_password:
+-	kfree_sensitive(new->password);
+-err_free_username:
+-	kfree(new->username);
+-	kfree(new);
+-	return -ENOMEM;
+-}
+-
+ /**
+  * dfs_cache_add_vol - add a cifs volume during mount() that will be handled by
+  * DFS cache refresh worker.
+@@ -1229,7 +1171,7 @@ int dfs_cache_add_vol(char *mntdata, struct smb3_fs_context *ctx, const char *fu
+ 		goto err_free_vi;
+ 	}
+ 
+-	rc = dup_vol(ctx, &vi->ctx);
++	rc = smb3_fs_context_dup(&vi->ctx, ctx);
+ 	if (rc)
+ 		goto err_free_fullpath;
+ 
+diff --git a/fs/cifs/fs_context.c b/fs/cifs/fs_context.c
+index 3d071c87353e..af6ff0192d5e 100644
+--- a/fs/cifs/fs_context.c
++++ b/fs/cifs/fs_context.c
+@@ -7,6 +7,7 @@
+  */
+ 
+ #include "cifsglob.h"
++#include "cifsproto.h"
+ #include "cifs_debug.h"
+ #include "fs_context.h"
+ 
+@@ -219,3 +220,43 @@ cifs_parse_cache_flavor(char *value, struct smb3_fs_context *ctx)
+ 	}
+ 	return 0;
+ }
++
++#define DUP_CTX_STR(field)						\
++do {									\
++	if (ctx->field) {						\
++		new_ctx->field = kstrdup(ctx->field, GFP_ATOMIC);	\
++		if (new_ctx->field == NULL) {				\
++			cifs_cleanup_volume_info_contents(new_ctx);	\
++			return -ENOMEM;					\
++		}							\
++	}								\
++} while (0)
++
++int
++smb3_fs_context_dup(struct smb3_fs_context *new_ctx, struct smb3_fs_context *ctx)
++{
++	int rc = 0;
++
++	memcpy(new_ctx, ctx, sizeof(*ctx));
++	new_ctx->prepath = NULL;
++	new_ctx->local_nls = NULL;
++	new_ctx->nodename = NULL;
++	new_ctx->username = NULL;
++	new_ctx->password = NULL;
++	new_ctx->domainname = NULL;
++	new_ctx->UNC = NULL;
++	new_ctx->iocharset = NULL;
++
++	/*
++	 * Make sure to stay in sync with cifs_cleanup_volume_info_contents()
++	 */
++	DUP_CTX_STR(prepath);
++	DUP_CTX_STR(username);
++	DUP_CTX_STR(password);
++	DUP_CTX_STR(UNC);
++	DUP_CTX_STR(domainname);
++	DUP_CTX_STR(nodename);
++	DUP_CTX_STR(iocharset);
++
++	return rc;
++}
+diff --git a/fs/cifs/fs_context.h b/fs/cifs/fs_context.h
+index f217bd600c1e..1ac5e1d202b6 100644
+--- a/fs/cifs/fs_context.h
++++ b/fs/cifs/fs_context.h
+@@ -152,6 +152,7 @@ struct smb3_fs_context {
+ 	bool rootfs:1; /* if it's a SMB root file system */
+ };
+ 
+-int cifs_parse_security_flavors(char *value, struct smb3_fs_context *ctx);
++extern int cifs_parse_security_flavors(char *value, struct smb3_fs_context *ctx);
++extern int smb3_fs_context_dup(struct smb3_fs_context *new_ctx, struct smb3_fs_context *ctx);
+ 
+ #endif
+-- 
+2.27.0
+

@@ -1,0 +1,36 @@
+From 45dd052e67ad17c7a24874a783f41aeab15bc294 Mon Sep 17 00:00:00 2001
+From: Christoph Hellwig <hch@lst.de>
+Date: Sat, 23 May 2020 09:30:14 +0200
+Subject: [PATCH 019/197] fs: handle FIEMAP_FLAG_SYNC in fiemap_prep
+
+By moving FIEMAP_FLAG_SYNC handling to fiemap_prep we ensure it is
+handled once instead of duplicated, but can still be done under fs locks,
+like xfs/iomap intended with its duplicate handling.  Also make sure the
+error value of filemap_write_and_wait is propagated to user space.
+
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+Reviewed-by: Amir Goldstein <amir73il@gmail.com>
+Reviewed-by: Darrick J. Wong <darrick.wong@oracle.com>
+Link: https://lore.kernel.org/r/20200523073016.2944131-8-hch@lst.de
+Signed-off-by: Theodore Ts'o <tytso@mit.edu>
+---
+ fs/cifs/smb2ops.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/fs/cifs/smb2ops.c b/fs/cifs/smb2ops.c
+index 828e53e795c6..300ade2acc41 100644
+--- a/fs/cifs/smb2ops.c
++++ b/fs/cifs/smb2ops.c
+@@ -3408,8 +3408,7 @@ static int smb3_fiemap(struct cifs_tcon *tcon,
+ 	int i, num, rc, flags, last_blob;
+ 	u64 next;
+ 
+-	rc = fiemap_prep(d_inode(cfile->dentry), fei, start, &len,
+-			FIEMAP_FLAG_SYNC);
++	rc = fiemap_prep(d_inode(cfile->dentry), fei, start, &len, 0);
+ 	if (rc)
+ 		return rc;
+ 
+-- 
+2.27.0
+

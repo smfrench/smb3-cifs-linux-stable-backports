@@ -1,0 +1,41 @@
+From cddf8a2c4a8286ae60fc866eab59c8bc524e93a0 Mon Sep 17 00:00:00 2001
+From: Christoph Hellwig <hch@lst.de>
+Date: Sat, 23 May 2020 09:30:13 +0200
+Subject: [PATCH 018/197] fs: move fiemap range validation into the file
+ systems instances
+
+Replace fiemap_check_flags with a fiemap_prep helper that also takes the
+inode and mapped range, and performs the sanity check and truncation
+previously done in fiemap_check_range.  This way the validation is inside
+the file system itself and thus properly works for the stacked overlayfs
+case as well.
+
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+Reviewed-by: Amir Goldstein <amir73il@gmail.com>
+Reviewed-by: Darrick J. Wong <darrick.wong@oracle.com>
+Link: https://lore.kernel.org/r/20200523073016.2944131-7-hch@lst.de
+Signed-off-by: Theodore Ts'o <tytso@mit.edu>
+---
+ fs/cifs/smb2ops.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/fs/cifs/smb2ops.c b/fs/cifs/smb2ops.c
+index 09047f1ddfb6..828e53e795c6 100644
+--- a/fs/cifs/smb2ops.c
++++ b/fs/cifs/smb2ops.c
+@@ -3408,8 +3408,10 @@ static int smb3_fiemap(struct cifs_tcon *tcon,
+ 	int i, num, rc, flags, last_blob;
+ 	u64 next;
+ 
+-	if (fiemap_check_flags(fei, FIEMAP_FLAG_SYNC))
+-		return -EBADR;
++	rc = fiemap_prep(d_inode(cfile->dentry), fei, start, &len,
++			FIEMAP_FLAG_SYNC);
++	if (rc)
++		return rc;
+ 
+ 	xid = get_xid();
+  again:
+-- 
+2.27.0
+

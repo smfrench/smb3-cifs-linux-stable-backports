@@ -1,0 +1,26 @@
+From afee4410bc6c50e1422c5a45d633ad0e478ea960 Mon Sep 17 00:00:00 2001
+From: Steve French <stfrench@microsoft.com>
+Date: Tue, 15 Dec 2020 15:17:43 -0600
+Subject: [PATCH 183/197] cifs: update internal module version number
+
+To 2.30
+
+Signed-off-by: Steve French <stfrench@microsoft.com>
+---
+ fs/cifs/cifsfs.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/fs/cifs/cifsfs.h b/fs/cifs/cifsfs.h
+index d6976c28970d..2307bb0f6147 100644
+--- a/fs/cifs/cifsfs.h
++++ b/fs/cifs/cifsfs.h
+@@ -160,5 +160,5 @@ extern struct dentry *cifs_smb3_do_mount(struct file_system_type *fs_type,
+ extern const struct export_operations cifs_export_ops;
+ #endif /* CONFIG_CIFS_NFSD_EXPORT */
+ 
+-#define CIFS_VERSION   "2.29"
++#define CIFS_VERSION   "2.30"
+ #endif				/* _CIFSFS_H */
+-- 
+2.27.0
+
